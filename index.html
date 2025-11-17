@@ -926,6 +926,7 @@
                 const activityCard = document.createElement('div');
                 activityCard.className = 'activity-card activity-active';
                 activityCard.id = `activityCard-${index}`;
+                
                 let activityTitleText = '';
                 switch (activity.type) {
                     case 0: activityTitleText = 'Playing'; break;
@@ -935,6 +936,11 @@
                     case 5: activityTitleText = 'Competing in'; break;
                     default: activityTitleText = 'Active in';
                 }
+                
+                if (activity.platform && activity.type === 0) {
+                    activityTitleText += ` ${activity.platform}`;
+                }
+                
                 activityCard.innerHTML = `
                     <div class="activity-header">
                         <svg class="activity-icon" viewBox="0 0 24 24" fill="#b9bbbe">
@@ -973,37 +979,54 @@
                 `;
                 const largeImageElement = activityCard.querySelector('.activity-large-image');
                 const smallImageElement = activityCard.querySelector('.activity-small-image');
-                if (activity.assets && activity.assets.large_image) {
-                    let largeImageUrl = activity.assets.large_image;
-                    if (largeImageUrl.startsWith('mp:')) {
-                        largeImageUrl = `https://media.discordapp.net/${largeImageUrl.replace('mp:', '')}`;
-                    } else if (largeImageUrl.startsWith('spotify:')) {
-                        largeImageUrl = `https://i.scdn.co/image/${largeImageUrl.replace('spotify:', '')}`;
-                    } else if (largeImageUrl.startsWith('external:')) {
-                        largeImageUrl = largeImageUrl.replace('external:', '');
-                    } else if (largeImageUrl.startsWith('https%3A%2F%2F')) {
-                        largeImageUrl = decodeURIComponent(largeImageUrl);
-                    } else {
-                        largeImageUrl = `https://cdn.discordapp.com/app-assets/${activity.application_id}/${largeImageUrl}.png?size=512`;
+                
+                if (activity.assets) {
+                    if (activity.assets.large_image) {
+                        let largeImageUrl = activity.assets.large_image;
+                        if (largeImageUrl.startsWith('mp:')) {
+                            largeImageUrl = `https://media.discordapp.net/${largeImageUrl.replace('mp:', '')}`;
+                        } else if (largeImageUrl.startsWith('spotify:')) {
+                            largeImageUrl = `https://i.scdn.co/image/${largeImageUrl.replace('spotify:', '')}`;
+                        } else if (largeImageUrl.startsWith('external:')) {
+                            largeImageUrl = largeImageUrl.replace('external:', '');
+                        } else if (largeImageUrl.startsWith('https%3A%2F%2F')) {
+                            largeImageUrl = decodeURIComponent(largeImageUrl);
+                        } else {
+                            largeImageUrl = `https://cdn.discordapp.com/app-assets/${activity.application_id}/${largeImageUrl}.png?size=512`;
+                        }
+                        largeImageElement.src = largeImageUrl;
+                    } else if (activity.assets.small_image) {
+                        let smallImageUrl = activity.assets.small_image;
+                        if (smallImageUrl.startsWith('mp:')) {
+                            smallImageUrl = `https://media.discordapp.net/${smallImageUrl.replace('mp:', '')}`;
+                        } else if (smallImageUrl.startsWith('spotify:')) {
+                            smallImageUrl = `https://i.scdn.co/image/${smallImageUrl.replace('spotify:', '')}`;
+                        } else if (smallImageUrl.startsWith('external:')) {
+                            smallImageUrl = smallImageUrl.replace('external:', '');
+                        } else {
+                            smallImageUrl = `https://cdn.discordapp.com/app-assets/${activity.application_id}/${smallImageUrl}.png?size=512`;
+                        }
+                        largeImageElement.src = smallImageUrl;
                     }
-                    largeImageElement.src = largeImageUrl;
+                    
+                    if (activity.assets.small_image && activity.assets.large_image) {
+                        let smallImageUrl = activity.assets.small_image;
+                        if (smallImageUrl.startsWith('mp:')) {
+                            smallImageUrl = `https://media.discordapp.net/${smallImageUrl.replace('mp:', '')}`;
+                        } else if (smallImageUrl.startsWith('spotify:')) {
+                            smallImageUrl = `https://i.scdn.co/image/${smallImageUrl.replace('spotify:', '')}`;
+                        } else if (smallImageUrl.startsWith('external:')) {
+                            smallImageUrl = smallImageUrl.replace('external:', '');
+                        } else {
+                            smallImageUrl = `https://cdn.discordapp.com/app-assets/${activity.application_id}/${smallImageUrl}.png?size=128`;
+                        }
+                        smallImageElement.src = smallImageUrl;
+                        smallImageElement.style.display = 'block';
+                    }
                 } else if (activity.application_id) {
                     largeImageElement.src = `https://dcdn.dstn.to/app-icons/${activity.application_id}.png?size=512`;
                 }
-                if (activity.assets && activity.assets.small_image) {
-                    let smallImageUrl = activity.assets.small_image;
-                    if (smallImageUrl.startsWith('mp:')) {
-                        smallImageUrl = `https://media.discordapp.net/${smallImageUrl.replace('mp:', '')}`;
-                    } else if (smallImageUrl.startsWith('spotify:')) {
-                        smallImageUrl = `https://i.scdn.co/image/${smallImageUrl.replace('spotify:', '')}`;
-                    } else if (smallImageUrl.startsWith('external:')) {
-                        smallImageUrl = smallImageUrl.replace('external:', '');
-                    } else {
-                        smallImageUrl = `https://cdn.discordapp.com/app-assets/${activity.application_id}/${smallImageUrl}.png?size=128`;
-                    }
-                    smallImageElement.src = smallImageUrl;
-                    smallImageElement.style.display = 'block';
-                }
+                
                 const activityTimeElement = activityCard.querySelector('.activity-time');
                 const activityProgressElement = activityCard.querySelector('.activity-progress');
                 if (activity.timestamps && activity.timestamps.start && activity.timestamps.end) {
