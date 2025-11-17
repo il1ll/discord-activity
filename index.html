@@ -8,6 +8,55 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.15.1/devicon.min.css">
     <style>
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: #1a1a1a;
+            border-bottom: 1px solid #2a2a2a;
+            padding: 12px 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            z-index: 1000;
+        }
+        .user-input {
+            flex: 1;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+            min-width: 0;
+        }
+        .user-input:focus {
+            border-color: #7289da;
+        }
+        .submit-btn {
+            background: #7289da;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .submit-btn:hover {
+            background: #5b73c4;
+        }
+        @media (max-width: 480px) {
+            .top-bar {
+                padding: 10px 12px;
+            }
+        }
         * {
             margin: 0;
             padding: 0;
@@ -17,7 +66,7 @@
             background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
             color: #f0f0f0;
             min-height: 100vh;
-            padding: 20px;
+            padding: 80px 20px 20px 20px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -466,9 +515,35 @@
                 max-width: 400px;
             }
         }
+        .toast {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ed4245;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 2000;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.3s ease, top 0.3s ease;
+            display: none;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        .toast.show {
+            display: block;
+            opacity: 1;
+            top: 90px;
+        }
     </style>
 </head>
 <body>
+    <div class="top-bar">
+        <input type="text" class="user-input" id="userIdInput" placeholder="Enter User ID">
+        <button class="submit-btn" id="submitBtn">Load</button>
+    </div>
     <div class="container">
         <div id="spotifyCard" class="spotify-card">
             <div class="spotify-header">
@@ -524,10 +599,10 @@
             </div>
         </div>
     </div>
+    <div id="errorToast" class="toast"></div>
     <script>
-        const coderId = '1099039269391171765';
+        let currentUserId = '1099039269391171765';
         const CdnBaseUrl = 'https://cdn.discordapp.com/';
-        const DcdnUrl = `https://dcdn.dstn.to/profile/${coderId}`;
         const IconPaths = {
             desktop: "M4 2.5c-1.103 0-2 .897-2 2v11c0 1.104.897 2 2 2h7v2H7v2h10v-2h-4v-2h7c1.103 0 2-.896 2-2v-11c0-1.103-.897-2-2-2H4Zm16 2v9H4v-9h16Z",
             web: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39Z",
@@ -542,21 +617,37 @@
         let lastCustomStatus = null;
         let lastActivities = [];
         let lastSpotifyData = null;
+        let toastTimeout = null;
 
-        async function fetchDcdnData() {
-            try {
-                const response = await fetch(DcdnUrl);
-                const data = await response.json();
-                if (data.user) {
-                    updateBanner(data.user);
-                    updateBadges(data.badges);
-                }
-            } catch (error) {
-                console.error('Failed to fetch DCDN data:', error);
+        function showErrorToast(message) {
+            const toast = document.getElementById('errorToast');
+            if (!toast) return;
+            toast.textContent = message;
+            toast.classList.add('show');
+            if (toastTimeout) {
+                clearTimeout(toastTimeout);
+            }
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 1000);
+        }
+
+        async function fetchDcdnData(userId) {
+            const DcdnUrl = `https://dcdn.dstn.to/profile/${userId}`;
+            const response = await fetch(DcdnUrl);
+            if (!response.ok) {
+                throw new Error('User not found');
+            }
+            const data = await response.json();
+            if (data.user) {
+                updateBanner(data.user, userId);
+                updateBadges(data.badges);
+            } else {
+                throw new Error('Invalid user data');
             }
         }
 
-        function updateBanner(userData) {
+        function updateBanner(userData, userId) {
             const bannerElement = document.getElementById('profileBanner');
             const bannerGifElement = document.getElementById('profileBannerGif');
             const colorBannerElement = document.getElementById('colorBanner');
@@ -565,11 +656,11 @@
             colorBannerElement.style.display = 'none';
             if (userData.banner) {
                 if (userData.banner.startsWith('a_')) {
-                    const gifUrl = `${CdnBaseUrl}banners/${coderId}/${userData.banner}.gif?size=480`;
+                    const gifUrl = `${CdnBaseUrl}banners/${userId}/${userData.banner}.gif?size=480`;
                     bannerGifElement.src = gifUrl;
                     bannerGifElement.style.display = 'block';
                 } else {
-                    const pngUrl = `${CdnBaseUrl}banners/${coderId}/${userData.banner}.png?size=480`;
+                    const pngUrl = `${CdnBaseUrl}banners/${userId}/${userData.banner}.png?size=480`;
                     bannerElement.src = pngUrl;
                     bannerElement.style.display = 'block';
                 }
@@ -597,44 +688,51 @@
             }
         }
 
-        function connectWebSocket() {
+        function connectWebSocket(userId) {
             try {
+                if (socket) {
+                    socket.onopen = null;
+                    socket.onmessage = null;
+                    socket.onclose = null;
+                    socket.onerror = null;
+                    socket.close();
+                    if (heartbeatInterval) clearInterval(heartbeatInterval);
+                }
                 socket = new WebSocket('wss://api.lanyard.rest/socket');
                 socket.addEventListener('open', () => {
                     console.log('WebSocket connected');
-                    fetchDcdnData();
                 });
                 socket.addEventListener('message', event => {
                     const message = JSON.parse(event.data);
                     switch(message.op) {
-                        case 1: handleHello(message); break;
+                        case 1: handleHello(message, userId); break;
                         case 0: handleEvent(message); break;
                     }
                 });
                 socket.addEventListener('close', () => {
                     console.log('WebSocket disconnected');
                     if (heartbeatInterval) clearInterval(heartbeatInterval);
-                    setTimeout(connectWebSocket, 1000);
                 });
-                socket.addEventListener('error', () => setTimeout(connectWebSocket, 1000));
+                socket.addEventListener('error', () => {
+                    console.error('WebSocket error');
+                });
             } catch (error) {
                 console.error('Failed to connect WebSocket:', error);
-                setTimeout(connectWebSocket, 1000);
             }
         }
 
-        function handleHello(message) {
+        function handleHello(message, userId) {
             const interval = message.d.heartbeat_interval;
             if (heartbeatInterval) clearInterval(heartbeatInterval);
             heartbeatInterval = setInterval(() => {
                 if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ op: 3 }));
             }, interval);
-            initializeConnection();
+            initializeConnection(userId);
         }
 
-        function initializeConnection() {
+        function initializeConnection(userId) {
             if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ op: 2, d: { subscribe_to_id: coderId } }));
+                socket.send(JSON.stringify({ op: 2, d: { subscribe_to_id: userId } }));
             }
         }
 
@@ -1095,8 +1193,38 @@
             });
         }
 
+        async function handleIdSubmission() {
+            const userIdInput = document.getElementById('userIdInput');
+            const newUserId = userIdInput.value.trim();
+            
+            if (!newUserId || newUserId === currentUserId) {
+                return;
+            }
+        
+            try {
+                await fetchDcdnData(newUserId);
+                currentUserId = newUserId;
+                connectWebSocket(newUserId);
+            } catch (error) {
+                console.error('Failed to fetch DCDN data:', error);
+                showErrorToast('Invalid User ID');
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
-            connectWebSocket();
+            const submitBtn = document.getElementById('submitBtn');
+            const userIdInput = document.getElementById('userIdInput');
+            
+            fetchDcdnData(currentUserId); 
+            connectWebSocket(currentUserId);
+            
+            submitBtn.addEventListener('click', handleIdSubmission);
+            
+            userIdInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    handleIdSubmission();
+                }
+            });
         });
     </script>
 </body>
